@@ -279,6 +279,34 @@ class TestFormattingAndCLI(unittest.TestCase):
             self.assertEqual(ret, 0)
             self.assertTrue(os.path.exists(csv_out))
 
+    def test_cli_batch_subcommand(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            csv_in = os.path.join(tmpdir, "input.csv")
+            csv_out = os.path.join(tmpdir, "output.csv")
+            with open(csv_in, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=[
+                    "specimen_id", "patient_age", "breslow_depth_mm", "clark_level",
+                    "ulceration_status", "mitotic_rate_per_mm2", "microscopic_satellitosis",
+                    "neurotropism", "lymphovascular_invasion", "anatomic_site"
+                ])
+                writer.writeheader()
+                writer.writerow({
+                    "specimen_id": "MEL-SUB-01", "patient_age": "45", "breslow_depth_mm": "0.95",
+                    "clark_level": "IV", "ulceration_status": "present", "mitotic_rate_per_mm2": "3.0",
+                    "microscopic_satellitosis": "absent", "neurotropism": "absent",
+                    "lymphovascular_invasion": "absent", "anatomic_site": "head_neck"
+                })
+
+            ret = cli.main(["batch", "-i", csv_in, "-o", csv_out])
+            self.assertEqual(ret, 0)
+            self.assertTrue(os.path.exists(csv_out))
+            with open(csv_out, "r", encoding="utf-8") as f:
+                reader = list(csv.DictReader(f))
+                self.assertEqual(len(reader), 1)
+                self.assertEqual(reader[0]["t_stage"], "pT1b")
+                self.assertIn("1.0 cm", reader[0]["recommended_margins"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

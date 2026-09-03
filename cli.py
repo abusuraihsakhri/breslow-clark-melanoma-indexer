@@ -150,13 +150,73 @@ def process_batch_csv(input_csv: str, output_csv: Optional[str] = None) -> int:
 
         results = []
         for r in rows:
-            specimen_id = r.get("specimen_id") or r.get("id") or r.get("patient_id") or "SPEC-001"
-            age = int(r.get("patient_age") or r.get("age") or 55)
-            depth = float(r.get("breslow_depth_mm") or r.get("breslow_mm") or r.get("depth") or 0.0)
-            in_situ = str(r.get("is_in_situ", "false")).lower() in ("true", "1", "yes")
-            ulcerated = str(r.get("ulcerated", "false")).lower() in ("true", "1", "yes")
-            lvi = str(r.get("lymphovascular_invasion", "false")).lower() in ("true", "1", "yes")
-            site_val = str(r.get("anatomic_site", "trunk")).lower()
+            specimen_id = (
+                r.get("specimen_id") or r.get("id") or r.get("patient_id")
+                or r.get("Patient_ID") or r.get("specimen") or "SPEC-001"
+            )
+            age_raw = r.get("patient_age") or r.get("age") or "55"
+            try:
+                age = int(float(age_raw))
+            except (ValueError, TypeError):
+                age = 55
+
+            depth_raw = (
+                r.get("breslow_depth_mm") or r.get("breslow_thickness_mm")
+                or r.get("breslow_mm") or r.get("depth") or r.get("breslow")
+                or r.get("v1") or "0.0"
+            )
+            try:
+                depth = float(depth_raw)
+            except (ValueError, TypeError):
+                depth = 0.0
+
+            in_situ_raw = str(r.get("is_in_situ", "")).strip().lower()
+            in_situ = in_situ_raw in ("true", "1", "yes", "in_situ", "in situ")
+
+            ulc_raw = str(
+                r.get("ulcerated") or r.get("ulceration") or r.get("ulceration_status") or "false"
+            ).strip().lower()
+            ulcerated = ulc_raw in ("true", "1", "yes", "present")
+
+            clark_raw = str(r.get("clark_level") or r.get("clark") or "").strip().upper()
+            clark_val = None
+            clark_map = {
+                "1": ClarkLevel.LEVEL_I, "I": ClarkLevel.LEVEL_I, "LEVEL_I": ClarkLevel.LEVEL_I,
+                "2": ClarkLevel.LEVEL_II, "II": ClarkLevel.LEVEL_II, "LEVEL_II": ClarkLevel.LEVEL_II,
+                "3": ClarkLevel.LEVEL_III, "III": ClarkLevel.LEVEL_III, "LEVEL_III": ClarkLevel.LEVEL_III,
+                "4": ClarkLevel.LEVEL_IV, "IV": ClarkLevel.LEVEL_IV, "LEVEL_IV": ClarkLevel.LEVEL_IV,
+                "5": ClarkLevel.LEVEL_V, "V": ClarkLevel.LEVEL_V, "LEVEL_V": ClarkLevel.LEVEL_V,
+            }
+            if clark_raw in clark_map:
+                clark_val = clark_map[clark_raw]
+
+            mitotic_raw = (
+                r.get("mitotic_rate_per_mm2") or r.get("mitotic_rate")
+                or r.get("mitoses") or "0.0"
+            )
+            try:
+                mitoses = float(mitotic_raw)
+            except (ValueError, TypeError):
+                mitoses = 0.0
+
+            lvi_raw = str(
+                r.get("lymphovascular_invasion") or r.get("lvi") or "false"
+            ).strip().lower()
+            lvi = lvi_raw in ("true", "1", "yes", "present")
+
+            perineural_raw = str(
+                r.get("perineural_invasion") or r.get("neurotropism")
+                or r.get("perineural") or "false"
+            ).strip().lower()
+            perineural = perineural_raw in ("true", "1", "yes", "present")
+
+            micro_raw = str(
+                r.get("microsatellitosis") or r.get("microscopic_satellitosis")
+                or r.get("satellitosis") or "false"
+            ).strip().lower()
+            microsatellites = micro_raw in ("true", "1", "yes", "present")
+
+            site_val = str(r.get("anatomic_site") or r.get("site") or "trunk").lower()
             site = AnatomicSite(site_val) if site_val in [s.value for s in AnatomicSite] else AnatomicSite.TRUNK
 
             specimen = MelanomaSpecimenInput(
@@ -165,15 +225,23 @@ def process_batch_csv(input_csv: str, output_csv: Optional[str] = None) -> int:
                 breslow_depth_mm=depth,
                 is_in_situ=in_situ,
                 ulcerated=ulcerated,
+                clark_level=clark_val,
+                mitotic_rate_per_mm2=mitoses,
                 lymphovascular_invasion=lvi,
+                perineural_invasion=perineural,
+                microsatellitosis=microsatellites,
                 anatomic_site=site
             )
             rep = BreslowClarkMelanomaIndexer.stage_melanoma(specimen)
             row_res = dict(r)
             row_res["t_stage"] = rep.t_stage.category
+            row_res["clark_level_staged"] = rep.clark_level
             row_res["slnb_recommendation"] = rep.slnb_evaluation.recommendation.value
             row_res["slnb_probability_pct"] = rep.slnb_evaluation.probability_pct
             row_res["recommended_margins"] = rep.surgical_margins.recommended_clinical_margin_cm
+            row_res["margin_rationale"] = rep.surgical_margins.guideline_rationale
+            row_res["adverse_features_count"] = rep.adverse_features_count
+            row_res["adverse_features"] = "; ".join(rep.adverse_features_list) if rep.adverse_features_list else "None"
             results.append(row_res)
 
         if output_csv:
@@ -192,6 +260,22 @@ def process_batch_csv(input_csv: str, output_csv: Optional[str] = None) -> int:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
+
+    # Check if 'batch' subcommand is used
+    if argv and argv[0] == "batch":
+        batch_parser = argparse.ArgumentParser(
+            prog="cli.py batch",
+            description="Batch evaluate melanoma pathology CSV records"
+        )
+        batch_parser.add_argument("-i", "--input", "--batch-csv", dest="batch_csv", required=True,
+                                  help="Input CSV file for batch processing")
+        batch_parser.add_argument("-o", "--output", dest="output", default=None,
+                                  help="Output CSV or JSON file path")
+        args = batch_parser.parse_args(argv[1:])
+        return process_batch_csv(args.batch_csv, args.output)
+
     parser = argparse.ArgumentParser(
         description="Cutaneous Melanoma Histopathologic Staging & SLNB Indexer (AJCC 8th Ed / NCCN)"
     )
@@ -284,3 +368,4 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

@@ -1,4 +1,13 @@
-Patient_ID,v1,v2,v3
-PT-101,14.5,4.2,1.8
-PT-102,8.0,2.1,0.5
-PT-103,28.4,12.0,5.5
+specimen_id,patient_age,breslow_depth_mm,clark_level,ulceration_status,mitotic_rate_per_mm2,microscopic_satellitosis,neurotropism,lymphovascular_invasion,anatomic_site,expected_pT_stage,expected_wle_margin,expected_slnb_rec
+MEL-TIS-001,48,0.00,I,absent,0.0,absent,absent,absent,trunk,Tis,0.5 cm to 1.0 cm,SLNB Generally Not Recommended
+MEL-T1A-002,52,0.45,II,absent,0.0,absent,absent,absent,extremity,pT1a,1.0 cm,SLNB Generally Not Recommended
+MEL-T1A-003,34,0.65,III,absent,0.0,absent,absent,absent,trunk,pT1a,1.0 cm,Discuss and Consider SLNB
+MEL-T1B-004,58,0.70,III,present,1.5,absent,absent,absent,extremity,pT1b,1.0 cm,Discuss and Consider SLNB
+MEL-T1B-005,42,0.85,III,absent,2.5,absent,absent,absent,trunk,pT1b,1.0 cm,Discuss and Consider SLNB
+MEL-T1B-006,61,0.95,IV,present,3.0,absent,absent,absent,head_neck,pT1b,1.0 cm,Discuss and Consider SLNB
+MEL-T2A-007,67,1.35,III,absent,1.0,absent,absent,absent,extremity,pT2a,1.0 cm to 2.0 cm,SLNB Recommended
+MEL-T2B-008,63,1.65,IV,present,4.0,absent,present,present,head_neck,pT2b,1.0 cm to 2.0 cm,SLNB Recommended
+MEL-T3A-009,55,2.40,IV,absent,2.0,absent,absent,absent,trunk,pT3a,2.0 cm,SLNB Recommended
+MEL-T3B-010,72,3.80,IV,present,6.0,absent,absent,present,extremity,pT3b,2.0 cm,SLNB Recommended
+MEL-T4A-011,59,4.20,V,absent,3.5,absent,absent,absent,trunk,pT4a,2.0 cm,SLNB Recommended
+MEL-T4B-012,70,5.20,V,present,8.0,present,present,present,acral,pT4b,2.0 cm,SLNB Recommended

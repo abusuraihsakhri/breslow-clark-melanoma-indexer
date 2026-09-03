@@ -1,144 +1,154 @@
-# Breslow Clark Melanoma Indexer
-
-> **Domain:** Medical Oncology & Cancer Staging Systems  
-> **Reference Guidelines & Standards:** `AJCC Cancer Staging Manual & NCCN Clinical Practice Guidelines`
-
-<div align="center">
+# Breslow Depth & Clark Level Cutaneous Melanoma Indexer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+![Standards](https://img.shields.io/badge/Standards-AJCC%208th%20Ed%20%7C%20NCCN%20v2.2024-brightgreen.svg)
+![Tests](https://img.shields.io/badge/Tests-Pytest%20Passing-success.svg)
 
-</div>
+A clinical-grade computational pathology engine for **cutaneous melanoma microstaging**, pathologic T-category assignment (AJCC 8th Edition), anatomical invasion stratification (Clark Levels I–V), quantitative Sentinel Lymph Node Biopsy (SLNB) risk modeling, and Wide Local Excision (WLE) margin guidance.
 
 ---
 
-## 📖 What It Does
+## 🔬 Dermatopathology & Staging Formulations
 
-AJCC 8th edition melanoma T-category assignment from microstaging.
+### 1. AJCC 8th Edition Pathologic T Category (pT)
 
-T category is defined by Breslow thickness (mm) with ulceration status as
-the a/b modifier (mitotic rate is REPORTED but no longer T-defining since
-AJCC 8; Clark level is used for historical comparison only):
+Cutaneous melanoma primary tumor staging is defined primarily by **Breslow maximal thickness (mm)**, with histologic **ulceration status** serving as the primary sub-staging dichotomy (`a` for non-ulcerated, `b` for ulcerated).
 
-    <= 1.0 mm   -> T1  (T1a: <0.8 mm non-ulcerated)
-                        (T1b: <0.8 mm ulcerated, OR 0.8-1.0 mm any ulceration)
-    >1.0-2.0    -> T2a/T2b
-    >2.0-4.0    -> T3a/T3b
-    >4.0        -> T4a/T4b
+$$\text{pT Category} = f(\text{Breslow Depth } t \text{ [mm]}, \text{Ulceration } u)$$
 
-Also flags sentinel lymph node biopsy discussion per NCCN guidance
-(consider SLNB when >= T1b, i.e. thickness >= 0.8 mm or ulcerated).
+| AJCC 8th Edition Category | Breslow Thickness ($t$) | Ulceration Status ($u$) | Microstaging Criteria & Historical Notes |
+| :--- | :--- | :--- | :--- |
+| **Tis** | $0.0\text{ mm}$ (confined to epidermis) | Absent | Melanoma in situ, basement membrane intact |
+| **pT1a** | $< 0.8\text{ mm}$ | Absent | Non-ulcerated thin melanoma without dermal ulcer defect |
+| **pT1b** | $< 0.8\text{ mm}$ with ulceration **OR** $0.8\text{ mm} \le t \le 1.0\text{ mm}$ | Any ($\pm$ ulceration) | Under AJCC 8th Ed, $0.8-1.0\text{ mm}$ is pT1b regardless of ulceration; mitotic rate removed from T-defining criteria |
+| **pT2a** | $1.01\text{ mm} - 2.00\text{ mm}$ | Absent | Intermediate thickness, non-ulcerated |
+| **pT2b** | $1.01\text{ mm} - 2.00\text{ mm}$ | Present | Intermediate thickness, ulcerated |
+| **pT3a** | $2.01\text{ mm} - 4.00\text{ mm}$ | Absent | Moderately thick, intact epidermis |
+| **pT3b** | $2.01\text{ mm} - 4.00\text{ mm}$ | Present | Moderately thick, ulcerated |
+| **pT4a** | $> 4.00\text{ mm}$ | Absent | Thick invasive melanoma, non-ulcerated |
+| **pT4b** | $> 4.00\text{ mm}$ | Present | Thick invasive melanoma, ulcerated |
 
-Breslow Depth & Clark Level Cutaneous Melanoma Histopathologic Indexer
-=====================================================================
-Comprehensive microstaging and staging engine implementing:
-- AJCC 8th Edition Pathologic T Category (pT) classification
-- Clark Level anatomical invasion microstaging (Levels I through V)
-- NCCN / ASCO-SSO Sentinel Lymph Node Biopsy (SLNB) decision criteria
-- Calibrated logistic nomogram for SLNB metastasis risk prediction
-- Surgical wide local excision (WLE) margin guidance
-- Comprehensive adverse histopathologic feature tracking (mitoses, LVI, perineural, microsatellites)
-
-Standards:
-- AJCC Cancer Staging Manual (8th Edition, 2017/2018)
-- NCCN Clinical Practice Guidelines in Oncology: Melanoma (Cutaneous)
-- ASCO-SSO Guideline on Sentinel Lymph Node Biopsy in Melanoma
+> **Note on AJCC 8 Updates:** The mitotic rate (previously defining T1b at $\ge 1/\text{mm}^2$ in AJCC 7th Edition) is still required to be reported by pathology protocol but is no longer a formal T-category defining threshold. Clark level invasion is maintained for anatomical depth documentation and historical comparability.
 
 ---
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+### 2. Clark Level of Anatomical Invasion
 
-### 🔬 Core Algorithmic & Evaluation Engines
+Clark levels measure micro-anatomical cutaneous depth relative to skin microarchitecture:
 
-- **`MelanomaSpecimen`** — dedicated module for melanoma specimen evaluation and state verification.
-- **`ClarkLevel`** — dedicated module for clark level evaluation and state verification.
-- **`AnatomicSite`** — dedicated module for anatomic site evaluation and state verification.
-- **`TilCategory`** — dedicated module for til category evaluation and state verification.
-- **`SlnbRecommendation`** — dedicated module for slnb recommendation evaluation and state verification.
-- **`MelanomaSpecimenInput`**: Input parameters for cutaneous melanoma histopathologic staging.
+- **Level I:** Intraepidermal / in situ lesions strictly confined above the basement membrane.
+- **Level II:** Invasion extending past the dermal-epidermal junction into the loose collagen network of the **papillary dermis**.
+- **Level III:** Tumor cells expand and fill the papillary dermis, accumulating at the **papillary-reticular dermis interface**.
+- **Level IV:** Penetration of dense collagen fascicles within the **reticular dermis**.
+- **Level V:** Transdermal invasion deep into the **subcutaneous adipose tissue (panniculus)**.
 
 ---
 
-## 📐 Mathematical Formulation & Logic
+### 3. Sentinel Lymph Node Biopsy (SLNB) Indications (NCCN / ASCO-SSO)
 
-```text
-  NON_BRISK = "Non-brisk"
-  BRISK = "Brisk"
-  slnb = cls.calculate_slnb_risk(
-  risk_score = 0.0
-  Calculates VBS incorporating tumor vascularity, lymphovascular invasion,
-```
+SLNB evaluation is based on predicted nodal metastasis risk:
+
+1. **pT1a ($<0.8\text{ mm}$, non-ulcerated):** Predicted risk $<5\%$. SLNB is **generally not recommended**, except in high-risk subsets (e.g., age $<40$ years, lymphovascular invasion [LVI], significant mitoses $\ge 2/\text{mm}^2$, or indeterminate margins).
+2. **pT1b ($<0.8\text{ mm}$ ulcerated, or $0.8-1.0\text{ mm}$):** Predicted risk $5-10\%$. Clinicians should **discuss and consider** SLNB.
+3. **pT2a to pT4b ($>1.0\text{ mm}$):** Predicted risk $>10\%$. SLNB is **routinely recommended** for surgical nodal staging.
+4. **Adverse Microstaging Features:** Presence of microscopic satellitosis directly upstages disease to **Stage III (N1c equivalent)**.
+
+$$\text{logit}(p) = \beta_0 + \beta_1 t + \beta_2 u + \beta_3 \left(\frac{\text{Age}-50}{10}\right) + \beta_4 \text{LVI} + \beta_{\text{site}}$$
+
+$$p(\text{SLN Positive}) = \frac{1}{1 + e^{-\text{logit}(p)}}$$
+
+---
+
+### 4. Surgical Wide Local Excision (WLE) Radial Margins
+
+Guideline radial clinical excision margins according to primary tumor thickness:
+
+- **Melanoma in situ (Tis):** $0.5\text{ cm} - 1.0\text{ cm}$ margin.
+- **Thin invasive ($\le 1.0\text{ mm}$):** $1.0\text{ cm}$ radial margin.
+- **Intermediate thickness ($1.01\text{ mm} - 2.00\text{ mm}$):** $1.0\text{ cm} - 2.0\text{ cm}$ radial margin.
+- **Thick melanoma ($> 2.00\text{ mm}$):** $2.0\text{ cm}$ radial margin.
 
 ---
 
 ## 💻 CLI Quickstart & Usage
 
-### 1. Guided Interactive Mode
+The CLI supports interactive single-case entry, benchmark demonstration cases, parameter flags, and batch processing of pathology CSVs.
+
+### Batch Processing CSV
+Process a cohort of melanoma pathology records:
 ```bash
-python cli.py
+python cli.py batch -i sample.csv -o results.csv
 ```
 
-### 2. Direct Parameterized Evaluation
+Or using standard arguments:
 ```bash
-python cli.py --interactive <value> --demo <value> --specimen-id <value> --age <value>
+python cli.py --batch-csv sample.csv --output results.csv
 ```
 
-### Parameter Reference
-- `--interactive`: Specifies input measurement or parameter value.
-- `--demo`: Specifies input measurement or parameter value.
-- `--specimen-id`: Specifies input measurement or parameter value.
-- `--age`: Specifies input measurement or parameter value.
-- `--depth`: Specifies input measurement or parameter value.
-- `--in-situ`: Specifies input measurement or parameter value.
-- `--ulcerated`: Specifies input measurement or parameter value.
-- `--clark-level`: Specifies input measurement or parameter value.
-- `--mitoses`: Specifies input measurement or parameter value.
-- `--lvi`: Specifies input measurement or parameter value.
-
-### Input Data Schema
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
-
----
-
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
-
----
-
-## 🧪 Testing & Verification
-
-Run the automated test suite:
-
+### Interactive Mode
+Walk through an interactive microstaging consultation:
 ```bash
-pytest -v
+python cli.py --interactive
 ```
 
-Execute high-throughput batch simulation benchmarks:
-
+### Direct CLI Evaluation
+Stage a primary cutaneous melanoma via CLI arguments:
 ```bash
-python simulator.py --tasks 1000 --concurrency 8
+python cli.py --specimen-id "MEL-2026-09" --depth 1.45 --ulcerated --clark-level 4 --lvi --age 62 --site trunk
+```
+
+### Benchmark Demo Scenarios
+Run pre-configured clinical benchmark cases (`in_situ`, `t1a`, `t1b`, `t2b`, `t4b`, or `all`):
+```bash
+python cli.py --demo all
 ```
 
 ---
 
-## 🐳 Container Deployment
+## 🐍 Python API Quickstart
 
-```bash
-docker build -t breslow-clark-melanoma-indexer .
-docker run -p 8000:8000 breslow-clark-melanoma-indexer
+```python
+from breslow_clark_indexer import (
+    BreslowClarkMelanomaIndexer,
+    MelanomaSpecimenInput,
+    ClarkLevel,
+    AnatomicSite,
+    format_melanoma_report,
+)
+
+# 1. Instantiate pathology specimen
+specimen = MelanomaSpecimenInput(
+    specimen_id="SPEC-PATH-001",
+    patient_age=58,
+    breslow_depth_mm=1.45,
+    ulcerated=True,
+    clark_level=ClarkLevel.LEVEL_IV,
+    mitotic_rate_per_mm2=3.0,
+    lymphovascular_invasion=True,
+    anatomic_site=AnatomicSite.HEAD_NECK,
+)
+
+# 2. Compute microstaging & clinical recommendations
+report = BreslowClarkMelanomaIndexer.stage_melanoma(specimen)
+
+# 3. Access structured results
+print(f"Pathologic T Stage: {report.t_stage.category}")
+print(f"SLNB Recommendation: {report.slnb_evaluation.recommendation.value}")
+print(f"SLNB Positivity Risk: {report.slnb_evaluation.probability_pct}%")
+print(f"WLE Margin: {report.surgical_margins.recommended_clinical_margin_cm}")
+
+# 4. Render human-readable pathology dossier
+print(format_melanoma_report(report))
 ```
+
+---
+
+## 🧪 Testing
+
+Run the test suite with pytest:
+```bash
+python -m pytest -p no:zarr
+```
+
+All tests execute in isolated environments validating AJCC 8 boundary conditions, Clark level mapping, SLNB risk probabilities, and CLI batch output formatting.
