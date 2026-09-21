@@ -18,6 +18,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
     steps:
@@ -33,4 +34,8 @@ jobs:
           path: .
 
       - name: Deploy
+        id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Report deployed URL
+        run: echo "Pages URL: ${{ steps.deployment.outputs.page_url }}"
