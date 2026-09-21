@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from enum import Enum
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 
 
 class ClarkLevel(int, Enum):
@@ -47,9 +47,9 @@ class TilCategory(str, Enum):
 
 
 class SlnbRecommendation(str, Enum):
-    NOT_RECOMMENDED = "SLNB Generally Not Recommended (<5% predicted risk, pT1a without adverse features)"
-    DISCUSS_CONSIDER = "Discuss and Consider SLNB (5-10% predicted risk, pT1b or pT1a with adverse features)"
-    RECOMMENDED = "SLNB Recommended (>10% predicted risk, pT1b-pT4)"
+    NOT_RECOMMENDED = "SLNB generally not recommended for routine pT1a cases without additional risk features"
+    DISCUSS_CONSIDER = "Discuss and consider SLNB based on tumor features and patient context"
+    RECOMMENDED = "SLNB is generally recommended for invasive melanoma >1.0 mm when clinically appropriate"
 
 
 @dataclass
@@ -72,14 +72,27 @@ class MelanomaSpecimenInput:
 
     def validate(self) -> List[str]:
         warnings = []
+        if not self.specimen_id or not self.specimen_id.strip():
+            raise ValueError("Specimen ID cannot be empty")
         if self.breslow_depth_mm < 0.0:
             raise ValueError(f"Breslow depth cannot be negative, got {self.breslow_depth_mm} mm")
         if self.patient_age < 0 or self.patient_age > 120:
             raise ValueError(f"Patient age must be between 0 and 120, got {self.patient_age}")
+        if self.mitotic_rate_per_mm2 is not None and self.mitotic_rate_per_mm2 < 0:
+            raise ValueError("Mitotic rate cannot be negative")
+        if self.is_in_situ and self.breslow_depth_mm > 0.0:
+            raise ValueError(
+                "In-situ melanoma cannot have a positive Breslow depth. "
+                "Set Breslow depth to 0.0 mm or clear the in-situ flag."
+            )
+        if self.anatomic_site is AnatomicSite.MUCOSAL:
+            raise ValueError(
+                "Mucosal melanoma is outside the scope of this cutaneous melanoma tool."
+            )
         if self.breslow_depth_mm == 0.0 and not self.is_in_situ:
-            warnings.append("Breslow depth 0.0 mm specified; defaulting to Melanoma In Situ (Tis).")
-        if self.breslow_depth_mm > 0.0 and self.is_in_situ:
-            warnings.append("Specimen flagged as in-situ but Breslow depth > 0.0 mm; invasive staging will apply.")
+            warnings.append("Breslow depth 0.0 mm interpreted as melanoma in situ (Tis).")
+        if self.clark_level is ClarkLevel.LEVEL_I and self.breslow_depth_mm > 0.0:
+            warnings.append("Clark level I is inconsistent with a positive Breslow depth.")
         return warnings
 
 
@@ -139,11 +152,12 @@ class MelanomaStagingReport:
 
 class BreslowClarkMelanomaIndexer:
     """
-    Expert computational indexer for Cutaneous Melanoma staging per AJCC 8th Edition,
-    Clark invasion strata, and ASCO/NCCN surgical and nodal biopsy pathways.
+    Cutaneous melanoma microstaging helper for AJCC 8th Edition T category,
+    Clark-level documentation, excision-margin guidance, and SLNB discussion prompts.
     """
 
-    # SLNB Logistic regression nomogram weights (MSKCC / AJCC 8 calibrated model)
+    # Exploratory logistic weights. This estimate is not externally validated and
+    # must not be used as a standalone clinical decision rule.
     NOMOGRAM_INTERCEPT = -2.80
     NOMOGRAM_COEF_THICKNESS = 0.55
     NOMOGRAM_COEF_ULCERATION = 0.90
@@ -171,6 +185,12 @@ class BreslowClarkMelanomaIndexer:
         - pT4a: > 4.0 mm, no ulceration
         - pT4b: > 4.0 mm, with ulceration
         """
+        if breslow_mm < 0.0:
+            raise ValueError("Breslow depth cannot be negative")
+        if is_in_situ and breslow_mm > 0.0:
+            raise ValueError(
+                "In-situ melanoma cannot have a positive Breslow depth."
+            )
         if is_in_situ or breslow_mm == 0.0:
             return TStageAssignment(
                 category="Tis",
@@ -246,7 +266,13 @@ class BreslowClarkMelanomaIndexer:
         mitotic_rate: Optional[float] = 0.0,
         microsatellites: bool = False
     ) -> SlnbRiskPrediction:
-        """Calculates quantitative SLNB positivity probability and guideline recommendation."""
+        """Returns an exploratory SLN-positivity estimate plus rule-based SLNB guidance."""
+        if breslow_mm < 0.0:
+            raise ValueError("Breslow depth cannot be negative")
+        if patient_age < 0 or patient_age > 120:
+            raise ValueError("Patient age must be between 0 and 120")
+        if site is AnatomicSite.MUCOSAL:
+            raise ValueError("Mucosal melanoma is outside the scope of this tool")
         if breslow_mm == 0.0:
             return SlnbRiskPrediction(
                 probability_pct=0.0,
@@ -287,7 +313,9 @@ class BreslowClarkMelanomaIndexer:
         if mitotic_rate is not None and mitotic_rate >= 2.0:
             risk_factors.append(f"Elevated mitotic rate ({mitotic_rate:.1f}/mm2)")
         if microsatellites:
-            risk_factors.append("Microsatellitosis detected (N1c equivalent)")
+            risk_factors.append(
+                "Microsatellitosis detected (regional metastatic feature; N category depends on nodal findings)"
+            )
         if patient_age < 40:
             risk_factors.append(f"Young patient age ({patient_age} yrs, higher nodal propensity)")
 
@@ -380,7 +408,9 @@ class BreslowClarkMelanomaIndexer:
         if specimen.perineural_invasion:
             adverse_features.append("Perineural / neurotropic invasion present")
         if specimen.microsatellitosis:
-            adverse_features.append("Microsatellites detected (Pathologic Stage III / N1c modifier)")
+            adverse_features.append(
+                "Microsatellites detected (regional metastatic feature; complete stage group requires nodal/distant data)"
+            )
         if specimen.mitotic_rate_per_mm2 is not None and specimen.mitotic_rate_per_mm2 >= 1.0:
             adverse_features.append(f"Mitotic activity present ({specimen.mitotic_rate_per_mm2:.1f}/mm2)")
         if specimen.regression_present:
@@ -388,7 +418,10 @@ class BreslowClarkMelanomaIndexer:
 
         critical_alerts = []
         if specimen.microsatellitosis:
-            critical_alerts.append("CRITICAL: Microsatellitosis upgrades classification to Stage III disease regardless of T category.")
+            critical_alerts.append(
+                "STAGING REVIEW: Microsatellitosis is a regional metastatic feature. "
+                "Assign the final N category and stage group using complete nodal and distant-metastasis data."
+            )
         if t_stage.category.startswith("pT4"):
             critical_alerts.append("HIGH RISK: Thick melanoma (>4.0 mm). High risk for distant and nodal metastasis.")
         if specimen.perineural_invasion:
@@ -432,8 +465,9 @@ def format_melanoma_report(report: MelanomaStagingReport) -> str:
     lines.append(f"Criteria Basis: {report.t_stage.criteria_basis}")
     lines.append("-" * 78)
     lines.append(f"SENTINEL LYMPH NODE BIOPSY (SLNB) ASSESSMENT:")
-    lines.append(f"  * Nomogram Predicted SLN Positivity Risk: {report.slnb_evaluation.probability_pct:.2f}%")
-    lines.append(f"  * Guideline Decision: {report.slnb_evaluation.recommendation.value}")
+    lines.append(f"  * Exploratory SLN Positivity Estimate: {report.slnb_evaluation.probability_pct:.2f}%")
+    lines.append("  * Model note: exploratory estimate; not externally validated for standalone clinical use.")
+    lines.append(f"  * SLNB Discussion Guidance: {report.slnb_evaluation.recommendation.value}")
     if report.slnb_evaluation.risk_factors_present:
         lines.append("  * Risk Factors:")
         for rf in report.slnb_evaluation.risk_factors_present:

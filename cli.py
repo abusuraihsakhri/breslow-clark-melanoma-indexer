@@ -148,6 +148,10 @@ def process_batch_csv(input_csv: str, output_csv: Optional[str] = None) -> int:
             reader = csv.DictReader(f)
             rows = list(reader)
 
+        if not rows:
+            print("Error in batch processing: input CSV contains no data rows", file=sys.stderr)
+            return 1
+
         results = []
         for r in rows:
             specimen_id = (
@@ -293,7 +297,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--microsatellites", action="store_true", help="Microsatellitosis present")
     parser.add_argument("--tils", choices=["absent", "non-brisk", "brisk"], default="non-brisk", help="Tumor-infiltrating lymphocytes")
     parser.add_argument("--regression", action="store_true", help="Histologic regression present")
-    parser.add_argument("--site", choices=["trunk", "extremity", "head_neck", "acral", "mucosal"], default="trunk", help="Anatomic primary site")
+    parser.add_argument("--site", choices=["trunk", "extremity", "head_neck", "acral"], default="trunk", help="Cutaneous primary site")
 
     parser.add_argument("--batch-csv", help="Input CSV file for batch processing")
     parser.add_argument("--output", "-o", help="Output file path (CSV or JSON)")
@@ -334,7 +338,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         specimen = MelanomaSpecimenInput(
             specimen_id=args.specimen_id,
             patient_age=args.age,
-            breslow_depth_mm=args.depth,
+            breslow_depth_mm=0.0 if args.in_situ else args.depth,
             is_in_situ=args.in_situ,
             ulcerated=args.ulcerated,
             clark_level=clark,
