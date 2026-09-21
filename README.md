@@ -1,5 +1,7 @@
 # Breslow–Clark Melanoma Indexer
 
+### [Open the Live Application →](https://abusuraihsakhri.github.io/breslow-clark-melanoma-indexer/)
+
 A compact cutaneous melanoma microstaging tool with a Python CLI/API and a browser interface for GitHub Pages.
 
 ## What it does
