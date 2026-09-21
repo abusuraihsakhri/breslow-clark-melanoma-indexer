@@ -199,6 +199,24 @@ class TestValidationAndFullPipeline(unittest.TestCase):
         with self.assertRaises(ValueError):
             BreslowClarkMelanomaIndexer.stage_melanoma(specimen)
 
+    def test_in_situ_positive_depth_raises_value_error(self):
+        specimen = MelanomaSpecimenInput(
+            specimen_id="ERR-3",
+            breslow_depth_mm=0.8,
+            is_in_situ=True,
+        )
+        with self.assertRaises(ValueError):
+            BreslowClarkMelanomaIndexer.stage_melanoma(specimen)
+
+    def test_mucosal_site_rejected(self):
+        specimen = MelanomaSpecimenInput(
+            specimen_id="ERR-4",
+            breslow_depth_mm=1.0,
+            anatomic_site=AnatomicSite.MUCOSAL,
+        )
+        with self.assertRaises(ValueError):
+            BreslowClarkMelanomaIndexer.stage_melanoma(specimen)
+
     def test_full_pipeline_thick_ulcerated(self):
         specimen = MelanomaSpecimenInput(
             specimen_id="SPEC-FULL-01",
@@ -278,6 +296,18 @@ class TestFormattingAndCLI(unittest.TestCase):
             ret = cli.main(["--batch-csv", csv_in, "--output", csv_out])
             self.assertEqual(ret, 0)
             self.assertTrue(os.path.exists(csv_out))
+
+    def test_cli_empty_batch_csv_returns_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            csv_in = os.path.join(tmpdir, "empty.csv")
+            csv_out = os.path.join(tmpdir, "output.csv")
+            with open(csv_in, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(["specimen_id", "breslow_depth_mm"])
+
+            ret = cli.main(["batch", "-i", csv_in, "-o", csv_out])
+            self.assertEqual(ret, 1)
+            self.assertFalse(os.path.exists(csv_out))
 
     def test_cli_batch_subcommand(self):
         with tempfile.TemporaryDirectory() as tmpdir:

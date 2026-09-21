@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
+  <title>Breslow–Clark Melanoma Indexer</title>
+  <meta name="description" content="Client-side cutaneous melanoma T-category and microstaging helper.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Cutaneous melanoma</p>
+        <h1>Breslow–Clark Indexer</h1>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" id="themeToggle" type="button" aria-label="Toggle dark mode" title="Toggle theme">◐</button>
+        <a class="text-link" href="https://github.com/abusuraihsakhri/breslow-clark-melanoma-indexer" rel="noopener noreferrer">Repository</a>
+      </div>
+    </header>
+
+    <nav class="mobile-tabs" aria-label="Application views">
+      <button type="button" class="tab-button active" data-view="input">Input</button>
+      <button type="button" class="tab-button" data-view="results">Results</button>
+    </nav>
+
+    <main class="workspace" id="workspace" data-mobile-view="input">
+      <section class="panel input-panel" aria-labelledby="inputTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Case input</p>
+            <h2 id="inputTitle">Primary melanoma features</h2>
+          </div>
+          <button class="secondary-button" id="sampleBtn" type="button">Example</button>
+        </div>
+
+        <form id="caseForm" novalidate>
+          <div class="field-grid">
+            <label class="field span-2">
+              <span>Specimen ID</span>
+              <input id="specimenId" name="specimenId" value="MEL-001" autocomplete="off" maxlength="80" required>
+            </label>
+
+            <label class="field">
+              <span>Age</span>
+              <input id="age" name="age" type="number" min="0" max="120" step="1" value="55" required>
+            </label>
+
+            <label class="field">
+              <span>Site</span>
+              <select id="site" name="site">
+                <option value="trunk">Trunk</option>
+                <option value="extremity">Extremity</option>
+                <option value="head_neck">Head / neck</option>
+                <option value="acral">Acral</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Breslow depth (mm)</span>
+              <input id="depth" name="depth" type="number" min="0" step="0.01" value="0.75" required>
+            </label>
+
+            <label class="field">
+              <span>Clark level</span>
+              <select id="clark" name="clark">
+                <option value="">Not specified</option>
+                <option value="1">I</option>
+                <option value="2">II</option>
+                <option value="3">III</option>
+                <option value="4">IV</option>
+                <option value="5">V</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Mitotic rate (/mm²)</span>
+              <input id="mitotic" name="mitotic" type="number" min="0" step="0.1" value="0">
+            </label>
+
+            <div class="check-stack">
+              <label class="check-row">
+                <input id="inSitu" name="inSitu" type="checkbox">
+                <span>Melanoma in situ</span>
+              </label>
+              <label class="check-row">
+                <input id="ulcerated" name="ulcerated" type="checkbox">
+                <span>Ulceration present</span>
+              </label>
+              <label class="check-row">
+                <input id="lvi" name="lvi" type="checkbox">
+                <span>Lymphovascular invasion</span>
+              </label>
+            </div>
+          </div>
+
+          <details class="advanced">
+            <summary>Additional pathology features</summary>
+            <div class="advanced-grid">
+              <label class="check-row">
+                <input id="perineural" name="perineural" type="checkbox">
+                <span>Perineural / neurotropic invasion</span>
+              </label>
+              <label class="check-row">
+                <input id="microsatellites" name="microsatellites" type="checkbox">
+                <span>Microsatellitosis</span>
+              </label>
+              <label class="check-row">
+                <input id="regression" name="regression" type="checkbox">
+                <span>Regression present</span>
+              </label>
+            </div>
+          </details>
+
+          <div class="form-error" id="formError" role="alert" aria-live="polite"></div>
+
+          <div class="form-actions">
+            <button class="secondary-button" id="resetBtn" type="button">Reset</button>
+            <button class="primary-button" id="analyzeBtn" type="submit">Analyse case</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel result-panel" aria-labelledby="resultTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Result</p>
+            <h2 id="resultTitle">Microstaging summary</h2>
+          </div>
+          <button class="secondary-button" id="downloadBtn" type="button" disabled>JSON</button>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <div class="empty-icon">T</div>
+          <h3>No case analysed</h3>
+          <p>Enter the primary melanoma features and select <strong>Analyse case</strong>.</p>
+        </div>
+
+        <div id="resultContent" class="result-content" hidden aria-live="polite">
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span class="metric-label">AJCC 8 pT</span>
+              <strong id="tStage" class="metric-value">—</strong>
+              <small id="tBasis">—</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Clark</span>
+              <strong id="clarkResult" class="metric-value">—</strong>
+              <small>Historical/anatomic descriptor</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">WLE margin</span>
+              <strong id="marginResult" class="metric-value">—</strong>
+              <small id="marginBasis">—</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">SLNB</span>
+              <strong id="slnbResult" class="metric-value small-value">—</strong>
+              <small>Discussion guidance, not a final treatment decision</small>
+            </article>
+          </div>
+
+          <div class="risk-strip">
+            <div>
+              <span>Exploratory SLN estimate</span>
+              <strong id="riskResult">—</strong>
+            </div>
+            <p>Unvalidated illustrative model; do not use as a standalone clinical decision rule.</p>
+          </div>
+
+          <div class="detail-grid">
+            <section>
+              <h3>Adverse features</h3>
+              <ul id="adverseList" class="plain-list"></ul>
+            </section>
+            <section>
+              <h3>Staging notes</h3>
+              <ul id="alertList" class="plain-list"></ul>
+            </section>
+          </div>
+
+          <p class="scope-note">
+            Complete melanoma stage grouping requires appropriate nodal and distant-metastasis information. This tool is limited to cutaneous melanoma.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Client-side only</span>
+      <span>AJCC 8 T-category helper</span>
+      <span>Not a substitute for current guidelines or multidisciplinary review</span>
+    </footer>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
